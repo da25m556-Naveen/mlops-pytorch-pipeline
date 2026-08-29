@@ -1,0 +1,34 @@
+# syntax=docker/dockerfile:1
+
+# Stage 1: build dependencies into an isolated prefix
+FROM python:3.11-slim AS builder
+WORKDIR /app
+
+COPY requirements/serve.txt .
+RUN pip install --no-cache-dir --prefix=/install \
+    --extra-index-url https://download.pytorch.org/whl/cpu \
+    -r serve.txt
+
+# Stage 2: serving runtime
+FROM python:3.11-slim AS serving
+WORKDIR /app
+
+COPY --from=builder /install /usr/local
+COPY src/model.py src/serve.py ./src/
+
+ENV PYTHONUNBUFFERED=1 \
+    PYTHONDONTWRITEBYTECODE=1
+
+RUN mkdir -p /app/checkpoints \
+    && useradd --create-home --shell /bin/bash appuser \
+    && chown -R appuser:appuser /app
+
+USER appuser
+WORKDIR /app/src
+
+EXPOSE 8080
+
+HEALTHCHECK --interval=30s --timeout=3s --start-period=10s --retries=3 \
+    CMD python -c "import urllib.request; urllib.request.urlopen('http://localhost:8080/health')"
+
+CMD ["python", "-m", "uvicorn", "serve:app", "--host", "0.0.0.0", "--port", "8080"]

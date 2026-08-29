@@ -1,0 +1,15 @@
+# Python
+__pycache__/
+*.pyc
+.pytest_cache/
+.venv/
+
+# Local-only config override
+configs/local_dev_config.yaml
+
+# Training artifacts
+data/
+checkpoints/
+
+# OS
+.DS_Store
